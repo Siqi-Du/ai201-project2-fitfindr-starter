@@ -79,7 +79,7 @@ def search_listings(
 
     if size is not None:
         size_lower = size.lower().strip()
-        listings = [l for l in listings if size_lower in l["size"].lower()]
+        listings = [l for l in listings if size_lower == l["size"].lower()]
 
     keywords = [w.lower() for w in description.split() if len(w) > 2]
 
