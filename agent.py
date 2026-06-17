@@ -92,9 +92,69 @@ def run_agent(query: str, wardrobe: dict) -> dict:
     Before writing code, complete the Planning Loop and State Management sections
     of planning.md — your implementation should match what you described there.
     """
-    # TODO: implement the planning loop
+    # Step 1: Initialize session
     session = _new_session(query, wardrobe)
-    session["error"] = "Planning loop not yet implemented."
+
+    # Step 2: Very simple parser using LLM
+    from tools import _get_groq_client
+    import json
+    try:
+        client = _get_groq_client()
+        prompt = (
+            f"Parse this fashion search query into JSON.\nQuery: '{query}'\n"
+            f"Output a raw JSON object (no markdown) with 3 keys:\n"
+            f'- "description": str (main keywords, no price/size)\n'
+            f'- "size": str or null\n'
+            f'- "max_price": float or null\n'
+        )
+        response = client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0,
+            response_format={"type": "json_object"},
+        )
+        parsed = json.loads(response.choices[0].message.content)
+        session["parsed"] = parsed
+        
+        description = parsed.get("description", query)
+        size = parsed.get("size")
+        max_price = parsed.get("max_price")
+    except Exception as e:
+        # Fallback if LLM parsing fails
+        session["parsed"] = {"description": query, "size": None, "max_price": None}
+        description, size, max_price = query, None, None
+
+    # Step 3: Search
+    results = search_listings(description=description, size=size, max_price=max_price)
+    session["search_results"] = results
+    
+    if len(results) == 0:
+        session["error"] = (
+            f"No listings found for '{description}'"
+            + (f" under ${max_price}" if max_price else "")
+            + (f" in size {size}" if size else "")
+            + ". Try a higher budget or broader keywords."
+        )
+        return session
+
+    # Step 4: Select top item
+    session["selected_item"] = results[0]
+
+    # Step 5: Suggest outfit
+    outfit = suggest_outfit(new_item=session["selected_item"], wardrobe=wardrobe)
+    if not outfit or outfit.startswith("Error"):
+        session["error"] = outfit
+        return session
+    session["outfit_suggestion"] = outfit
+
+    # Step 6: Create fit card
+    fit_card = create_fit_card(outfit=session["outfit_suggestion"], new_item=session["selected_item"])
+    if not fit_card or fit_card.startswith("Error"):
+        session["error"] = fit_card
+        return session
+    session["fit_card"] = fit_card
+
+    # Step 7: Done
     return session
 
 
