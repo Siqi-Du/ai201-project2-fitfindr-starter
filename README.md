@@ -64,60 +64,64 @@ wardrobe = get_example_wardrobe()
 
 ## Tool Inventory
 
-Your README submission must document each tool's name, inputs, and return value. **These must exactly match your actual function signatures in `tools.py`.** Your documented interfaces will be checked against your actual function signatures in `tools.py` — if the parameter count or types contradict what's in the code, you may not receive full credit for that tool.
+**`search_listings`**
+- **Inputs:** `description` (str), `size` (str), `max_price` (float)
+- **Return value:** A list of dictionaries `list[dict]` containing matching items, sorted by relevance score.
+
+**`suggest_outfit`**
+- **Inputs:** `new_item` (dict), `wardrobe` (dict)
+- **Return value:** A string (`str`) containing the styling advice.
+
+**`create_fit_card`**
+- **Inputs:** `outfit` (str), `new_item` (dict)
+- **Return value:** A string (`str`) containing a short social media style caption.
 
 ---
 
 ## Interaction Walkthrough
 
-<!-- Walk through a complete interaction step by step: natural language query → each tool call (and why) → final fit card.
-     Walk through this carefully — it's how graders follow your agent's reasoning without a live demo.
-     Use a specific example — do not leave this as a template. -->
-
-**User query:**
+**User query:** "I'm looking for a vintage graphic tee under $30. I mostly wear baggy jeans and chunky sneakers. What's out there and how would I style it?"
 
 **Step 1 — Tool called:**
-- Tool:
-- Input:
-- Why this tool:
-- Output:
+- Tool: `search_listings`
+- Input: `description="vintage graphic tee"`, `size=None`, `max_price=30.0`
+- Why this tool: To find the thrifted item matching the user's budget and description.
+- Output: Returns a list of matching items, e.g., `[{"title": "Y2K Baby Tee — Butterfly Print", "price": 18.0, ...}]`
 
 **Step 2 — Tool called:**
-- Tool:
-- Input:
-- Why this tool:
-- Output:
+- Tool: `suggest_outfit`
+- Input: `new_item={"title": "Y2K Baby Tee...", ...}`, `wardrobe={"items": [...]}`
+- Why this tool: To provide a complete outfit idea combining the newly found item with the user's existing wardrobe.
+- Output: "Pair this faded graphic tee with your baggy straight-leg jeans and chunky white sneakers for a classic 90s grunge feel."
 
 **Step 3 — Tool called:**
-- Tool:
-- Input:
-- Why this tool:
-- Output:
+- Tool: `create_fit_card`
+- Input: `outfit="Pair this faded graphic...", new_item={"title": "Y2K Baby Tee...", ...}`
+- Why this tool: To generate an engaging social media post caption for the completed outfit.
+- Output: "thrifted this faded band tee off depop for $19 and honestly it was made for my baggy jeans 🖤 90s grunge but make it effortless"
 
 **Final output to user:**
+User receives the selected item details, the styling advice, and the generated social media fit card.
 
 ---
 
 ## Error Handling and Fail Points
 
-<!-- For each tool, describe the specific failure mode and what your agent does in response.
-     This maps to the error handling section of the rubric (F5-C1). -->
-
 | Tool | Failure mode | Agent response |
 |------|-------------|----------------|
-| `search_listings` | | |
-| `suggest_outfit` | | |
-| `create_fit_card` | | |
+| `search_listings` | No matching results found for the query | Returns `[]`. The agent detects the empty list, sets `session["error"]` to ask the user to loosen their constraints, and returns early without calling other tools. |
+| `suggest_outfit` | Wardrobe is empty (`items = []`) | The LLM prompt falls back to general styling advice without referencing specific pieces. It returns a valid string without throwing an exception. |
+| `create_fit_card` | Outfit input is an empty string or None | Returns an error string (e.g., "Error: outfit description is required...") instead of calling the LLM or throwing a Python exception. |
 
 ---
 
 ## Spec Reflection
 
-<!-- Answer both questions with at least 2–3 sentences each. -->
-
 **One way planning.md helped during implementation:**
+Writing `planning.md` first clearly established the contract for each tool, especially regarding failure modes. Because I had pre-decided that empty searches would return `[]` instead of throwing an error, implementing the state machine in `agent.py` was much simpler as I knew exactly what edge cases to check for.
 
 **One divergence from your spec, and why:**
+In our initial planning phase, we assumed `search_listings` should sort results by price ascending. However, during implementation, we realized the actual instructions required us to calculate a relevance score based on keyword matches and sort by that score. So we diverged from our initial plan and changed the logic to sort by relevance score descending to ensure the most accurate item is selected.
 
 ---
 
